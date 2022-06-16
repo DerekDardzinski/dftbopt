@@ -1,0 +1,30 @@
+Geometry = GenFormat { 
+    <<< "geo_end.gen" 
+} 
+ 
+Hamiltonian = DFTB{ 
+   KPointsAndWeights = SupercellFolding { 
+      7 0 0 
+      0 7 0 
+      0 0 7 
+      0.0 0.0 0.0 
+   } 
+   MaxAngularMomentum = { 
+      As = d 
+      In = d 
+   } 
+   PolynomialRepulsive = SetForAll { Yes } 
+   Scc = Yes 
+   SccTolerence = 1e-05 
+   SlaterKosterFiles = Type2FileNames{ 
+      Prefix = /home/derek/doc/cmu/research/projects/dftb_tests/dftbopt/dftbopt/slako/ 
+      Separator = "-" 
+      Suffix = ".skf" 
+      } 
+   } 
+Options { 
+   WriteResultsTag = Yes 
+} 
+ParserOptions { 
+   IgnoreUnprocessedNodes = Yes  
+} 
