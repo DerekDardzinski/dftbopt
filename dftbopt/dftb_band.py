@@ -7,6 +7,7 @@ from pymatgen.io.vasp.inputs import Kpoints
 from ase.io import write, read
 from ase.build import bulk
 from dptools.bandout import BandOut
+from vaspvis import Band
 import matplotlib.pyplot as plt
 import numpy as np
 import hsd
@@ -21,15 +22,31 @@ class DFTBBand:
         self,
         atoms,
         maximum_angular_momenta,
-        slako_dir,
+        slako_dir='slako',
+        dftb_dir='dftb',
+        dir_index='1',
     ) -> None:
         self.atoms = atoms
         self.maximum_angular_momenta = {'': ''} | maximum_angular_momenta
-        self.slako_dir = os.path.join(os.getcwd(), slako_dir)
+        self.slako_dir = os.path.join(os.getcwd(), slako_dir, dir_index)
         if self.slako_dir[-1] != '/':
             self.slako_dir += '/'
 
+        self.dftb_dir = dftb_dir
+        self.dir_index = dir_index
+
         self.efermi = None
+        self.dft_eigenvalues = None
+        self.dftb_eigenvalues = None
+
+    def __getstate__(self):
+        print('DFTBand')
+        d = self.__dict__.copy()
+        for key in self.__dict__:
+            print(key, type(d[key]))
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
     def _interpolate(self, point1, point2, n):
         xs = np.linspace(point1[0], point2[0], n)
@@ -72,11 +89,20 @@ class DFTBBand:
         kwargs['Hamiltonian_PolynomialRepulsive'] = 'SetForAll { Yes }'
 
         current_dir = os.getcwd()
-        folder_path = os.path.join(current_dir, 'chg')
-        if not os.path.isdir(folder_path):
-            os.mkdir(folder_path)
+        dftb_path = os.path.join(current_dir, self.dftb_dir)
+        index_path = os.path.join(dftb_path, self.dir_index)
+        chg_path = os.path.join(index_path, 'chg')
 
-        os.chdir(folder_path)
+        if not os.path.isdir(dftb_path):
+            os.mkdir(dftb_path)
+
+        if not os.path.isdir(index_path):
+            os.mkdir(index_path)
+
+        if not os.path.isdir(chg_path):
+            os.mkdir(chg_path)
+
+        os.chdir(chg_path)
 
         calc = Dftb(
             atoms=atoms,
@@ -113,17 +139,29 @@ class DFTBBand:
         ])
 
         current_dir = os.getcwd()
-        folder_path = os.path.join(current_dir, 'band')
-        if not os.path.isdir(folder_path):
-            os.mkdir(folder_path)
+        dftb_path = os.path.join(current_dir, self.dftb_dir)
+        index_path = os.path.join(dftb_path, self.dir_index)
+        band_path = os.path.join(index_path, 'band')
+
+        if not os.path.isdir(dftb_path):
+            os.mkdir(dftb_path)
+
+        if not os.path.isdir(index_path):
+            os.mkdir(index_path)
+
+        if not os.path.isdir(band_path):
+            os.mkdir(band_path)
+
+        os.chdir(band_path)
 
         shutil.copyfile(
-            os.path.join(current_dir, 'chg', 'charges.bin'),
-            os.path.join(folder_path, 'charges.bin'),
+            os.path.join(index_path, 'chg', 'charges.bin'),
+            os.path.join(band_path, 'charges.bin'),
         )
-        print(os.listdir(folder_path))
 
-        os.chdir(folder_path)
+        print(os.listdir(band_path))
+
+        os.chdir(band_path)
 
         calc = Dftb(
             atoms=atoms,
@@ -134,26 +172,75 @@ class DFTBBand:
 
         atoms.set_calculator(calc)
         calc.calculate(atoms)
-        self.efermi = calc.get_fermi_level()
 
         os.chdir(current_dir)
 
+        self.efermi = calc.get_fermi_level()
+
+        band_file = os.path.join(band_path, 'band.out')
+        bandout = BandOut.fromfile(band_file)
+        dftb_eigenvalues = bandout.eigvalarray.transpose(0,2,1,3)[0,:,:,0] - self.efermi
+        self.dftb_eigenvalues = dftb_eigenvalues
+
+
+    def add_dft_bands(self, vasp_folder):
+        dft_band = Band(folder=vasp_folder)
+        dft_eigenvalues = dft_band.eigenvalues
+        self.dft_eigenvalues = dft_eigenvalues
+
+    def _locate_and_shift_bands(self, eigenvalues, band_range):
+        band_mean = eigenvalues.mean(axis=1)
+
+        below_index = np.where(band_mean < 0)[0]
+        above_index = np.where(band_mean >= 0)[0]
+
+        vbm = np.max(eigenvalues[below_index])
+        cbm = np.min(eigenvalues[above_index])
+        bg = cbm - vbm
+
+        if cbm < vbm:
+            vbm = 0.0
+            cbm = 0.0
+            bg = 0
+
+        valence_bands = eigenvalues[below_index[-band_range[0]:]]
+        conduction_bands = eigenvalues[above_index[:band_range[1]]]
+
+        valence_bands -= vbm
+        conduction_bands -= cbm
+
+        shifted_bands = np.r_[conduction_bands, valence_bands]
+
+        return shifted_bands, bg
+
+
+    def get_delta_band(self, band_range=[5,5]):
+        dft_eigenvalues = self.dft_eigenvalues
+        dftb_eigenvalues = self.dftb_eigenvalues
+
+        shifted_dft_eigenvalues, dft_bg = self._locate_and_shift_bands(dft_eigenvalues, band_range)
+        shifted_dftb_eigenvalues, dftb_bg = self._locate_and_shift_bands(dftb_eigenvalues, band_range)
+
+        n = shifted_dft_eigenvalues.shape[0] * shifted_dft_eigenvalues.shape[1]
+        delta_band = np.sum((1/n)*np.sum((shifted_dft_eigenvalues - shifted_dftb_eigenvalues)**2))**(1/2)
+        delta_bg = np.abs(dft_bg - dftb_bg)
+
+        return delta_band, delta_bg
+
+
     def plot_band(self):
-        band_dir = os.path.join(os.getcwd(), 'band', 'band.out')
-        bandout = BandOut.fromfile(band_dir)
-        eigenvalues = bandout.eigvalarray.transpose(0,2,1,3)[:,:,:,0] - self.efermi
-        nspin, nbands, nkpts = eigenvalues.shape
+        eigenvalues = self.dftb_eigenvalues
+        nbands, nkpts = eigenvalues.shape
 
         # pin = hsd.load('./dftb_pin.hsd')
         # kpoints = np.array(pin['Hamiltonian']['DFTB']['KPointsAndWeights'])[:,:3]
 
         fig, ax = plt.subplots(figsize=(4,3), dpi=400)
-        for i in range(nspin):
-            for j in range(nbands):
-                ax.plot(
-                    np.arange(nkpts),
-                    eigenvalues[i,j],
-                )
+        for j in range(nbands):
+            ax.plot(
+                np.arange(nkpts),
+                eigenvalues[j],
+            )
 
         ax.set_ylim(-10,10)
         ax.set_xlim(0,nkpts)
@@ -174,4 +261,7 @@ if __name__ == '__main__':
     )
     dftb_band.run_chg()
     dftb_band.run_band(coords='GXWLGK')
+    dftb_band.add_dft_bands(vasp_folder='./dft/band')
     dftb_band.plot_band()
+
+    print(dftb_band.get_delta_band())

@@ -2,10 +2,9 @@ from ase.units import Bohr
 from ase.data import atomic_numbers, covalent_radii
 from itertools import combinations_with_replacement
 from pymatgen.core.periodic_table import Element
-from hotcent.atomic_dft import AtomicDFT
-from hotcent.slako import SlaterKosterTable
-from hotcent.confinement import PowerConfinement
-import pylibxc
+from dd_hotcent.hotcent.atomic_dft import AtomicDFT
+from dd_hotcent.hotcent.slako import SlaterKosterTable
+from dd_hotcent.hotcent.confinement import PowerConfinement
 import os
 
 # Define standard, rule-of-thumb confinement potentials

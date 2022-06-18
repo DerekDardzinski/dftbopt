@@ -1,0 +1,22 @@
+# general 
+ALGO = Fast     # Mixture of Davidson and RMM-DIIS algos
+PREC = N        # Normal precision
+EDIFF = 1e-5    # Convergence criteria for electronic converge
+NELM = 500      # Max number of electronic steps
+ENCUT = 400     # Cut off energy
+LASPH = True    # Include non-spherical contributions from gradient corrections
+NBANDS = 20    # Number of bands to include in the calculation
+BMIX = 3        # Mixing parameter for convergence
+AMIN = 0.01     # Mixing parameter for convergence 
+SIGMA = 0.05    # Width of smearing in eV
+
+# parallelization
+KPAR = 17        # The number of k-points to be treated in parallel
+# NPAR = 7        # The number of bands to be treated in parallel
+
+# band 
+ICHARG = 11     # Calculate eigenvalues from preconverged CHGCAR
+ISMEAR = 0      # Fermi smearing
+LCHARG = False  # Does not write the CHG* files
+LWAVE = False   # Does not write the WAVECAR files (True for unfolding)
+LORBIT = 11     # Projected data (lm-decomposed PROCAR)
