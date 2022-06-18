@@ -1,11 +1,11 @@
-from hotcent.atomic_dft import AtomicDFT
 from ase.units import Bohr
 from ase.build import bulk
 from ase.data import atomic_numbers, covalent_radii
 from itertools import combinations_with_replacement, repeat
-from dd_hotcent.hotcent.atomic_dft import AtomicDFT
-from dd_hotcent.hotcent.confinement import PowerConfinement as PC
-from dd_hotcent.hotcent.slako import SlaterKosterTable
+from hotcent.atomic_dft import AtomicDFT
+from hotcent.atomic_dft import AtomicDFT
+from hotcent.confinement import PowerConfinement as PC
+from hotcent.slako import SlaterKosterTable
 from pymatgen.core.periodic_table import Element
 # from multiprocessing import Pool, cpu_count
 import os
