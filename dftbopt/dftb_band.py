@@ -229,23 +229,34 @@ class DFTBBand:
 
 
     def plot_band(self):
-        eigenvalues = self.dftb_eigenvalues
-        nbands, nkpts = eigenvalues.shape
+        dftb_eigenvalues = self.dftb_eigenvalues
+        dft_eigenvalues = self.dft_eigenvalues
+        # nbands, nkpts = dftb_eigenvalues.shape
 
         # pin = hsd.load('./dftb_pin.hsd')
         # kpoints = np.array(pin['Hamiltonian']['DFTB']['KPointsAndWeights'])[:,:3]
 
         fig, ax = plt.subplots(figsize=(4,3), dpi=400)
-        for j in range(nbands):
+
+        for j in range(dft_eigenvalues.shape[0]):
             ax.plot(
-                np.arange(nkpts),
-                eigenvalues[j],
+                np.arange(len(dft_eigenvalues[j])),
+                dft_eigenvalues[j],
+                color='black',
             )
 
+        for j in range(dftb_eigenvalues.shape[0]):
+            ax.plot(
+                np.arange(len(dftb_eigenvalues[j])),
+                dftb_eigenvalues[j],
+                color='red',
+            )
+
+
         ax.set_ylim(-10,10)
-        ax.set_xlim(0,nkpts)
+        ax.set_xlim(0,dftb_eigenvalues.shape[1])
         fig.tight_layout(pad=0.4)
-        fig.savefig('bs.png')
+        fig.savefig('bs_test.png')
 
         
 
@@ -257,7 +268,7 @@ if __name__ == '__main__':
     dftb_band = DFTBBand(
         atoms=atoms,
         maximum_angular_momenta={'In': 'd', 'As': 'd'},
-        slako_dir='slako',
+        slako_dir='slako_test',
     )
     dftb_band.run_chg()
     dftb_band.run_band(coords='GXWLGK')
